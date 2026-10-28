@@ -1,0 +1,9 @@
+# Pinned for reproducible deploys (python 3.12 on Railway, 3.13 locally). Bump on purpose, in a ticket.
+fastapi==0.143.3
+uvicorn[standard]==0.54.0
+sqlalchemy==2.1.5
+psycopg[binary]==3.3.6
+anthropic==1.15.0
+pyyaml==6.0.3
+httpx==0.28.1
+pytest==9.1.1

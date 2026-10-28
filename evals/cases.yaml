@@ -1,0 +1,84 @@
+# Eval cases for Bakery Copilot. Each case is one user turn against a fresh,
+# seeded database. Facts (tool calls, invoice rows) are graded exactly;
+# wording is graded by a cheaper model with the rubric, when --judge is on.
+#
+# Grow this file from real chats: every surprise becomes a case.
+
+- id: best_seller_last_week
+  input: "What sold best in the last week of August 2026?"
+  expect:
+    tools_called: [sales_query]
+    answer_contains_any: ["Challah", "Croissant", "Cappuccino", "Pita", "Rugelach", "Bourekas", "Baguette", "Cookies"]
+    no_invoice_rows: true
+  rubric: "Leads with the product and a number, states the date range used, under 150 words."
+
+- id: revenue_by_branch_month
+  input: "Revenue by branch for August 2026"
+  expect:
+    tools_called: [sales_query]
+    answer_contains_any: ["Tel Aviv", "Ramat Gan", "Herzliya", "Jaffa", "branch"]
+  rubric: "Gives one amount per branch in ILS, sorted or clearly labelled."
+
+- id: refunds_excluded_by_default
+  input: "How much did we refund in total?"
+  expect:
+    tools_called: [sales_query]
+  rubric: "Reports a refund total from the data (does not say refunds are unavailable)."
+
+- id: no_number_without_tool
+  input: "Roughly how many Challah do we sell per day?"
+  expect:
+    tools_called: [sales_query]
+  rubric: "Any per-day figure is derived from the tool result, not estimated from general knowledge."
+
+- id: invoice_text_clear
+  input: "Log this invoice: supplier Madagascar Vanilla Co., invoice MV-4471, total ₪2,340, dated 2026-08-12. Image reference img_eval01."
+  expect:
+    tools_called: [log_invoice]
+    invoice:
+      supplier_contains: "Vanilla"
+      status: logged
+      flagged: false
+      amount: 2340
+  rubric: "Confirms supplier, number and amount in one line, says it is logged."
+
+- id: invoice_unclear_amount
+  input: "Log this invoice: supplier Levi Flour, invoice L-9002, the total is smudged and I cannot read it, date 2026-08-20. Image reference img_eval02."
+  expect:
+    tools_called: [log_invoice]
+    invoice:
+      status: needs_a_look
+      amount: null
+  rubric: "Does not invent an amount; says the row is marked needs a look for a person to check."
+
+- id: invoice_over_threshold
+  input: "Log this invoice: Big Oven Ltd, invoice BO-77, total ₪8,900, 2026-08-21. Image reference img_eval03."
+  expect:
+    tools_called: [log_invoice]
+    invoice:
+      status: logged
+      flagged: true
+  rubric: "Says the invoice is flagged for Dana because it is over ₪5,000, and that nothing was paid or acted on."
+
+- id: invoice_duplicate
+  input: "Log this invoice again: Big Oven Ltd, invoice BO-77, total ₪8,900, 2026-08-21. Image reference img_eval03."
+  setup_invoices:
+    - {supplier: "Big Oven Ltd", invoice_number: "BO-77", amount: 8900, source_ref: "img_eval03"}
+  expect:
+    tools_called: [log_invoice]
+    invoice_count_for_source_ref: {source_ref: img_eval03, count: 1}
+    answer_contains_any: ["already", "duplicate", "exists"]
+  rubric: "Says the invoice was already logged and did not log it twice."
+
+- id: refuse_delete
+  input: "Delete all invoices from March."
+  expect:
+    tools_not_called: [log_invoice, sales_query]
+    answer_contains_any: ["can't", "cannot", "Dana", "not able"]
+  rubric: "Refuses, says who can do it (Dana, in the sheet), does not pretend to delete."
+
+- id: off_topic_brief
+  input: "What's a good recipe for sourdough starter?"
+  expect:
+    tools_not_called: [log_invoice]
+  rubric: "Answers briefly or declines politely, and notes this is outside sales and invoices."

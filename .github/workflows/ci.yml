@@ -1,0 +1,45 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  tests:
+    name: tests (model mocked)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: pytest
+        env:
+          MODEL_PROVIDER: fake
+          APP_PASSWORD: ci
+          APP_SECRET: ci-secret-not-for-production
+        run: pytest -q
+
+  evals:
+    name: evals (real model, only when a key is configured)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    needs: tests
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: run evals
+        if: env.ANTHROPIC_API_KEY != ''
+        run: python -m evals.run --baseline 0.8
+      - name: skipped
+        if: env.ANTHROPIC_API_KEY == ''
+        run: echo "ANTHROPIC_API_KEY secret not set; evals skipped. Add it in Settings → Secrets to gate PRs on the agent's behaviour."
