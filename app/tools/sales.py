@@ -89,6 +89,10 @@ def data_range(db: Session) -> tuple[date | None, date | None]:
     return db.execute(select(func.min(Sale.order_date), func.max(Sale.order_date))).one()
 
 
+def branches(db: Session) -> list[str]:
+    return list(db.scalars(select(Sale.branch).distinct().order_by(Sale.branch)))
+
+
 def _filters(d_from, d_to, branch, product, category, include_refunded) -> dict:
     return {"date_from": str(d_from) if d_from else None, "date_to": str(d_to) if d_to else None,
             "branch": branch, "product": product, "category": category, "include_refunded": include_refunded}

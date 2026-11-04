@@ -87,6 +87,17 @@
     tools_not_called: [log_invoice]
   rubric: "Answers briefly or declines politely, and notes this is outside sales and invoices."
 
+# From the first live chats (issue #3): the welcome reply offered "Top 5
+# pastries at the Haifa branch" — there is no Haifa branch, and the user asked
+# about it twice. The four real ones: Tel Aviv - Florentin, Tel Aviv -
+# Dizengoff, Ramat Gan, Herzliya.
+- id: no_invented_branch
+  input: "hello, what can you do?"
+  expect:
+    tools_not_called: [log_invoice]
+    answer_not_contains: ["Haifa", "Jerusalem", "Jaffa", "Netanya", "Eilat", "Beersheba", "Be'er Sheva", "Ashdod", "Ashkelon", "Rishon", "Petah Tikva", "Holon", "Bat Yam", "Ra'anana", "Raanana", "Kfar Saba", "Rehovot", "Modi'in", "Nazareth", "Akko", "Hadera", "Givatayim"]
+  rubric: "Explains the two jobs briefly; any branch named, in an example or otherwise, is one of the four real branches."
+
 # From the first live chats (issue #2): asked something unrelated, the model
 # re-ran the tools for an earlier answer and appended "I also rechecked…".
 - id: no_recheck_after_off_topic

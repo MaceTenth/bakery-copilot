@@ -119,6 +119,14 @@ def test_image_message_carries_a_reference(client, db, logged_in, fake):
     assert user_msg.has_image is True and "[image img_" in user_msg.content
 
 
+def test_system_prompt_names_the_real_branches(client, db):
+    # Issue #3: unnamed, the model made one up ("Haifa") for its examples.
+    text = agent_module.build_system(db)[0]["text"]
+    for branch in ("Tel Aviv - Florentin", "Tel Aviv - Dizengoff", "Ramat Gan", "Herzliya"):
+        assert branch in text
+    assert "{{" not in text
+
+
 def test_digest_endpoint_needs_secret(client, logged_in):
     assert client.post("/internal/digest").status_code == 401
     r = client.post("/internal/digest", headers={"X-Cron-Secret": "cron-test"})

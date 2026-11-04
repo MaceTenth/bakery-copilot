@@ -29,7 +29,7 @@ from .config import ROOT, settings
 from .costs import Usage, cost_usd
 from .db import Conversation, Message, Run, User, utcnow
 from .tools import registry
-from .tools.sales import data_range
+from .tools.sales import branches, data_range
 
 try:  # the SDK is optional at import time so tests run without it configured
     import anthropic
@@ -138,6 +138,7 @@ def build_system(db: Session) -> list[dict]:
     today = datetime.now(ZoneInfo(settings.timezone)).date()
     text = (SYSTEM_PATH.read_text(encoding="utf-8")
             .replace("{{DATA_FROM}}", str(d_from or "unknown")).replace("{{DATA_TO}}", str(d_to or "unknown"))
+            .replace("{{BRANCHES}}", ", ".join(branches(db)) or "unknown")
             .replace("{{TODAY}}", today.isoformat()))
     # One cached block: tools + system form the stable prefix every turn reuses.
     return [{"type": "text", "text": text, "cache_control": {"type": "ephemeral"}}]
