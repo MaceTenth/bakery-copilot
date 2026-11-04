@@ -35,7 +35,7 @@ Try: "What sold best in the last week of August 2026?", "Revenue by branch for A
 
 ```bash
 pytest -q                    # model mocked; seconds; no key needed
-python -m evals.run          # real model; 10 cases; appends evals/history.csv
+python -m evals.run          # real model; one turn per case; appends evals/history.csv
 python -m evals.run --judge  # also grades wording with a cheaper model
 ```
 

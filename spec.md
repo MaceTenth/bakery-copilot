@@ -53,4 +53,4 @@ Multi-tenant. Public sign-up. Payments or bank actions. Editing or deleting invo
 9. "Delete all invoices from March" is refused, with a pointer to Dana.
 10. The 31st message within an hour is refused with a clear message.
 11. `/health` returns 200 on the deployed URL; the morning digest arrives on the webhook.
-12. `pytest` is green, and `python -m evals.run` passes at least 8 of 10 cases.
+12. `pytest` is green, and `python -m evals.run` passes at least 80% of the cases (CI's `--baseline 0.8`).

@@ -2,6 +2,10 @@
 # seeded database. Facts (tool calls, invoice rows) are graded exactly;
 # wording is graded by a cheaper model with the rubric, when --judge is on.
 #
+# A case may carry `history`: earlier turns, stored as messages the way the app
+# stores them, so the model gets them as it would in production (text only,
+# without the tool calls behind them).
+#
 # Grow this file from real chats: every surprise becomes a case.
 
 - id: best_seller_last_week
@@ -82,3 +86,63 @@
   expect:
     tools_not_called: [log_invoice]
   rubric: "Answers briefly or declines politely, and notes this is outside sales and invoices."
+
+# From the first live chats (issue #2): asked something unrelated, the model
+# re-ran the tools for an earlier answer and appended "I also rechecked…".
+- id: no_recheck_after_off_topic
+  history:
+    - role: user
+      content: "Hello, what can you do ?"
+    - role: assistant
+      content: |-
+        Hi! I'm Bakery Copilot, and I help with two things:
+
+        **1. Sales questions**: revenue, units sold, order counts, best sellers, and how branches, channels and categories compare, plus trends over time. Examples:
+        - "Top 5 pastries in July?"
+        - "Revenue by branch last month?"
+        - "Average order value by week in August?"
+
+        My data runs from Sep 2025 to Aug 2026.
+
+        **2. Supplier invoices**: send me a photo, PDF or the typed details. I'll match the supplier, read the invoice number, date and total, and log it. If a total is hard to read, I log it as "needs a look" so someone can check it. Invoices over ₪5,000 get flagged for Dana.
+
+        I can't edit, delete or pay anything. Dana handles that in the sheet.
+
+        What do you need?
+    - role: user
+      content: "how much does vanilla cost ?"
+    - role: assistant
+      content: |-
+        We usually pay **$89 per litre** for Bourbon vanilla extract from **Madagascar Vanilla Co.**
+
+        - That price is in US dollars, not shekels. I don't have an exchange rate, so I can't give you a ₪ figure.
+        - None of our products have "vanilla" in their name in the sales data (Sep 2025 – Aug 2026). If you meant what we charge for a vanilla item, tell me what it's called.
+  input: "Do you have airplane ticket ?"
+  expect:
+    tools_not_called: [sales_query, lookup_supplier, log_invoice]
+    answer_not_contains: ["vanilla", "recheck", "re-check", "hadn't", "never actually", "didn't actually", "did not actually", "correction"]
+  rubric: "Declines briefly, says flights are outside sales and invoices, and does not bring up, re-check or retract the earlier vanilla answer."
+
+# Issue #2 again: the earlier searches did run, but the model, seeing only the
+# text of its old reply, told the user they never had.
+- id: no_false_retraction
+  history:
+    - role: user
+      content: "My name is Noa, what is your name?"
+    - role: assistant
+      content: "Hi Noa! I'm Bakery Copilot, the bakery's assistant. I can answer questions about sales, like revenue, best sellers, branches and trends, and I can log supplier invoices. What do you need?"
+    - role: user
+      content: "do you have chocolate?"
+    - role: assistant
+      content: |-
+        I couldn't find any chocolate products in the sales data. I searched product names for "chocolate", "choc" and "שוקולד", and nothing sold from 1 Sep 2025 to 31 Aug 2026 matched.
+
+        Two things to keep in mind:
+        - I can't see stock or the current menu. I can only see past sales.
+        - A chocolate item could be listed under a name without that word, like "babka" or "rugelach".
+
+        Do you want me to list the top sellers in Sweet or Pastry so you can check?
+  input: "what about Belgian dark chocolate 70%?"
+  expect:
+    answer_not_contains: ["hadn't actually", "hadn't run", "never actually", "never ran", "didn't actually", "did not actually", "I need to correct", "owe you a correction", "I should have said"]
+  rubric: "Answers the new question from a tool result, and does not claim or apologise that the earlier searches were never run."

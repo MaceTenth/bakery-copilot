@@ -8,7 +8,8 @@
 Facts are graded exactly (which tools ran, what rows exist). Wording is graded
 by a second model only when --judge is passed, and never for the facts.
 Every run appends a row to evals/history.csv. Costs real money: a full pass is
-roughly 10 cases × 1 turn; check the tokens column in history.csv.
+one new turn per case in cases.yaml (a case's `history` turns are stored, not
+sent to the model one by one); check the tokens column in history.csv.
 """
 from __future__ import annotations
 
@@ -35,7 +36,7 @@ os.environ.setdefault("DAILY_CAP_USD", "1000")
 
 from app import agent as agent_module  # noqa: E402
 from app.config import settings  # noqa: E402
-from app.db import Invoice, SessionLocal, User, init_db  # noqa: E402
+from app.db import Conversation, Invoice, Message, SessionLocal, User, init_db  # noqa: E402
 from app.tools.invoices import log_invoice  # noqa: E402
 
 
@@ -44,6 +45,20 @@ def git_sha() -> str:
         return subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], cwd=ROOT, text=True).strip()
     except Exception:
         return "nogit"
+
+
+def _seed_history(db, user: User, turns: list[dict]) -> Conversation | None:
+    """Store a case's earlier turns the way the app stores them, so the model gets them through `_history()`."""
+    if not turns:
+        return None
+    conversation = Conversation(user_id=user.id, title=turns[0]["content"][:60])
+    db.add(conversation)
+    db.commit()
+    db.refresh(conversation)
+    for t in turns:
+        db.add(Message(conversation_id=conversation.id, user_id=user.id, role=t["role"], content=t["content"]))
+    db.commit()
+    return conversation
 
 
 def run_case(case: dict, client) -> dict:
@@ -56,8 +71,10 @@ def run_case(case: dict, client) -> dict:
         if user.id is None:
             db.add(user)
             db.commit()
+        conversation = _seed_history(db, user, case.get("history", []))
         text_parts, tools, usage, cost, status = [], [], {}, 0.0, "ok"
-        for ev in agent_module.run_turn(db, user=user, conversation=None, text=case["input"], image=None, client=client):
+        for ev in agent_module.run_turn(db, user=user, conversation=conversation, text=case["input"], image=None,
+                                        client=client):
             if ev["type"] == "text":
                 text_parts.append(ev["text"])
             elif ev["type"] == "tool" and ev["status"] == "start":
@@ -114,8 +131,10 @@ def grade_wording(case: dict, result: dict, judge_model: str) -> str | None:
     import anthropic
 
     client = anthropic.Anthropic()
+    earlier = "".join(f"{t['role'].capitalize()}: {t['content']}\n\n" for t in case.get("history", []))
     prompt = (f"You grade an assistant's reply against a rubric. Reply with PASS or FAIL and one short reason.\n\n"
-              f"User asked: {case['input']}\n\nAssistant replied:\n{result['answer']}\n\nRubric: {case['rubric']}")
+              + (f"Earlier in the conversation:\n\n{earlier}" if earlier else "")
+              + f"User asked: {case['input']}\n\nAssistant replied:\n{result['answer']}\n\nRubric: {case['rubric']}")
     msg = client.messages.create(model=judge_model, max_tokens=100, messages=[{"role": "user", "content": prompt}])
     text = "".join(b.text for b in msg.content if getattr(b, "type", "") == "text").strip()
     return None if text.upper().startswith("PASS") else text
