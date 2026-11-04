@@ -40,6 +40,7 @@ Format: **title** · label · done when.
 26. **Windows instructions** · chore · README, `practice.md` and `docs/deploy-railway.md` give PowerShell commands wherever Windows differs from macOS and Linux; shell scripts keep LF line endings on Windows checkouts (`.gitattributes`).
 27. **.env loader drops inline comments** · bug · a copy of `.env.example` loads with `load_settings()`; a quoted value keeps a `#`.
 28. **Public repository** · chore · the history is one commit under GitHub's noreply address; no personal email, live URL or workspace name in any tracked file; Railway deploys from the new repo.
+29. **Fresh start: no live deployment** · chore · the Railway project is deleted; `docs/deploy-railway.md` no longer describes a running deployment and can be followed from step 1.
 
 ## Later (not scheduled)
 
