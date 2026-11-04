@@ -1,6 +1,6 @@
 # Deploying Bakery Copilot on Railway
 
-How to put this app on Railway from nothing, where every secret goes, and the Railway CLI commands for the first deploy and for day two. `architecture.md` ("Hosting", "Secrets") records the decisions; `runbook.md` is for when it breaks; this file is the walkthrough. It describes the project as it runs on 2026-10-27, with Railway CLI 5.71.
+How to put this app on Railway from nothing, where every secret goes, and the Railway CLI commands for the first deploy and for day two. `architecture.md` ("Hosting", "Secrets") records the decisions; `runbook.md` is for when it breaks; this file is the walkthrough. Every step was run and verified on 2026-10-27 with Railway CLI 5.71, then the project was deleted so the deploy can be rebuilt from step 1, for example in class.
 
 Commands are written for macOS and Linux (zsh or bash). On Windows, use PowerShell 7: the `railway`, `git`, `gh` and `npm` commands run there unchanged, and wherever Windows differs, a **Windows (PowerShell)** block follows the macOS and Linux one. Command Prompt (`cmd.exe`) is not covered, because it keeps single quotes as part of a value.
 
@@ -410,10 +410,3 @@ Most commands take `--service`, `--environment`, `--project`, `--json` and `--ye
 | `railway open` | the project in the dashboard |
 | `railway api '<graphql>'` | raw GraphQL against Railway's API; `railway api describe <Type>` prints a type |
 | `railway down --service web --yes`, `railway service delete --service web --yes`, `railway delete` | remove the latest deployment, a service, the project |
-
-## 9. This deployment, as of 2026-10-27
-
-- Railway: project `bakery-copilot`, environment `production`, services `web`, `digest` and `Postgres`, region `iad`, with a generated `*.up.railway.app` domain. The address is not in this repo: find it in the dashboard (`web` → Settings → Networking) or with `railway domain list --service web`. `railway config plan` reports no drift.
-- Set and verified: every variable in section 3 on both services, except `DIGEST_WEBHOOK_URL`, so the digest prints to the log only. `/health` answers 200; a wrong password gets 401; an off-schedule digest run completed with exit 0.
-- Deploys from GitHub work: the app was installed on 2026-10-27, both services were reconnected with `railway service source connect` (section 4, step 2, since the first `railway add` had left no push trigger), and the head of `main` then built and deployed from GitHub on both services, with `/health` at 200 afterwards.
-- Not done yet: no `DIGEST_WEBHOOK_URL`, and no `ANTHROPIC_API_KEY` Actions secret, so CI skips the evals.
