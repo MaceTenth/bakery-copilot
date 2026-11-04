@@ -27,6 +27,8 @@ from .tools.invoices import recent_invoices
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.init_report = init_db()
+    # One line in the deploy log, so a first deploy can be checked (docs/deploy-railway.md, step 7).
+    print("seed report: " + ", ".join(f"{k}: {v}" for k, v in app.state.init_report.items()), flush=True)
     app.state.model_client = get_model_client()
     yield
 

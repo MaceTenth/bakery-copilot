@@ -127,6 +127,19 @@ def test_system_prompt_names_the_real_branches(client, db):
     assert "{{" not in text
 
 
+def test_startup_prints_the_seed_report(client, capsys):
+    # Issue #4: the deploy guide checks this line in the logs. The session's first start
+    # already seeded, so this second start reports zeros, as a redeploy does.
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    capsys.readouterr()
+    with TestClient(app):
+        pass
+    assert "seed report: schema_version: 1, suppliers_seeded: 0, sales_seeded: 0" in capsys.readouterr().out
+
+
 def test_digest_endpoint_needs_secret(client, logged_in):
     assert client.post("/internal/digest").status_code == 401
     r = client.post("/internal/digest", headers={"X-Cron-Secret": "cron-test"})

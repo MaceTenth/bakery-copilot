@@ -42,6 +42,7 @@ Format: **title** · label · done when.
 28. **Public repository** · chore · the history is one commit under GitHub's noreply address; no personal email, live URL or workspace name in any tracked file; Railway deploys from the new repo.
 30. **Assistant stops re-checking and retracting answers it already checked (issue #2)** · bug · eval cases can carry earlier turns (`history`); `no_recheck_after_off_topic` and `no_false_retraction` pass; `no_number_without_tool` still passes; `pytest -q` is green.
 31. **System prompt names the branches; the assistant stops inventing them (issue #3)** · bug · `build_system()` output contains the four branch names from the data; the eval `no_invented_branch` passes; `pytest -q` is green.
+32. **Deploy guide checks that work: seed report in the log, SSH key for the private database (issue #4)** · bug · startup prints `seed report: … sales_seeded: N` (tested); `docs/deploy-railway.md` gets from no SSH key to a row count with each command listed, and no longer says a local `railway run` can read the database.
 
 ## Later (not scheduled)
 

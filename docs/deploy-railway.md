@@ -44,6 +44,7 @@ Tools on your machine:
 | Git | the repo | comes with Xcode's command line tools | `winget install Git.Git` | `git --version` |
 | `gh` (optional) | PRs and Actions secrets from the terminal | `brew install gh` | `winget install GitHub.cli` | `gh auth status` |
 | `openssl` | generates the two random secrets on macOS and Linux | ships with the system | not needed (section 3.4) | `openssl version` |
+| An SSH key (optional) | looking inside the private database (section 6) | `ssh-keygen -t ed25519` if `~/.ssh` has no `.pub` file | the same command; OpenSSH ships with Windows 10 and 11 | `railway ssh keys list` |
 | PowerShell 7 | the Windows shell for this guide | not needed | `winget install Microsoft.PowerShell` | `$PSVersionTable.PSVersion` |
 
 On Linux, take Python, Node and Git from the distribution, and the CLI from npm (`npm i -g @railway/cli`, Node 16 or newer) or Railway's script (`bash <(curl -fsSL railway.com/install.sh)`).
@@ -308,7 +309,7 @@ railway logs --service digest -d -n 20
 
 `cron run` enqueues the run and returns; it can take a few minutes to show in `cron list`. The log must end with the six digest lines and `[sent to webhook: True]` (or `False` when `DIGEST_WEBHOOK_URL` is not set).
 
-`web`'s first start seeds 29,115 sales rows and 10 suppliers, which can take up to a minute (the health timeout is 120 s). `railway logs --service web -d -n 50` shows the seed report (`sales_seeded: 29115`). Later deploys skip the seed.
+`web`'s first start seeds 29,115 sales rows and 10 suppliers, which can take up to a minute (the health timeout is 120 s). `railway logs --service web -d -n 50` shows it as one line, `seed report: schema_version: 1, suppliers_seeded: 10, sales_seeded: 29115`. Later deploys print `0` for both counts: the seed only fills empty tables.
 
 Last, if the evals should run in CI: `gh secret set ANTHROPIC_API_KEY --repo MaceTenth/bakery-copilot` asks for the value without echoing it. Without the secret the evals job prints "skipped" and only the tests gate the merge.
 
@@ -346,7 +347,21 @@ Remove-Variable v
 
 It returns the text and whether it was sent to the webhook.
 
-**Look at the database.** `railway connect Postgres` opens `psql` through a tunnel (`psql` must be installed locally; on Windows it comes with the PostgreSQL installer from postgresql.org). Read only: rows are never edited by hand (practice.md). `railway run --service web -- python -m app.digest` runs a local command with the service's variables in its environment; the real key is in that process, so use it for one-off reads and never `railway run env`.
+**Look at the database.** Read only: rows are never edited by hand (practice.md). The database has no public address, because `railway add --database postgres` creates no TCP proxy, and that is the safer way to keep it. So every way in goes over SSH, and Railway must know your SSH key first. Once per machine:
+
+```bash
+railway ssh keys add
+```
+
+It registers the public key it finds in `~/.ssh` (on Windows, `.ssh` in your user folder); `railway ssh keys github` imports the keys of your GitHub account instead. The first connection asks you to trust `ssh.railway.com`: answer `yes` in an interactive terminal. A script cannot answer, and fails with `Host key verification failed.`
+
+Then `railway connect Postgres` opens `psql` through an SSH tunnel (`psql` must be installed locally; on Windows it comes with the PostgreSQL installer from postgresql.org). Without `psql`, run Python inside `web`, which reaches the database over Railway's private network and prints no password:
+
+```bash
+railway ssh --service web -- python -c "from sqlalchemy import text; from app.db import engine; print(engine.connect().execute(text('select count(*) from sales')).scalar())"
+```
+
+Expect `29115`. `railway ssh --service web -- python -m app.digest` prints the digest the same way. `railway run --service web -- <command>` is different: it runs the command on your machine with the service's variables, the real key included, so use it for one-off work and never `railway run env`. Its `DATABASE_URL` points at Railway's private network, which your machine cannot reach.
 
 **A staging environment.** `railway environment new staging --duplicate production` creates copies of the three services with the same variables. Give it its own `APP_PASSWORD`, then `railway config apply --environment staging`. runbook.md's database-restore entry assumes one exists.
 
@@ -370,6 +385,8 @@ It returns the text and whether it was sent to the webhook.
 | The digest runs at the wrong hour | cron schedules are UTC | `30 4 * * *` is 07:30 IDT and 06:30 IST; change it in `railway.ts`, plan, apply |
 | `railway logs --service digest` shows nothing for a run | you are reading another deployment, or output was buffered | `railway cron list --service digest` for the run, then `railway logs <deployment-id> --service digest -d`; keep `PYTHONUNBUFFERED=1` |
 | `railway api` answers "Not Authorized" to GitHub queries | the CLI token cannot see the GitHub integration | use the dashboard for anything about repo access |
+| `railway ssh` or `railway connect Postgres`: `No registered SSH keys found` | the database is private, so both go over SSH, and Railway has no key of yours | `railway ssh keys add` (section 6) |
+| `railway ssh`: `Host key verification failed.` | the first connection to `ssh.railway.com` needs a yes, and a script cannot give one | run the same command once in an interactive terminal and answer `yes` |
 | Login refused with the right password | `APP_PASSWORD` carries a stray space, newline or quotes; the comparison is byte for byte | set it again (section 3.4) |
 | Windows: `… cannot be loaded because running scripts is disabled on this system` | PowerShell's default execution policy blocks local scripts (Scoop's installer, `Activate.ps1`) | `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser`, once |
 | Windows: `railway`, `py` or `node` "is not recognized" right after installing | the window was opened before the install changed the PATH | open a new PowerShell window |
@@ -404,8 +421,10 @@ Most commands take `--service`, `--environment`, `--project`, `--json` and `--ye
 | `railway logs --service web -d -n 100` | deploy logs; `-b` build, `--http` requests; `-f '@level:error'` filters; omit `-n` to stream |
 | `railway domain --service web` | generate a public domain; `railway domain example.com --service web` adds a custom one |
 | `railway cron run --service digest --yes`, `railway cron list --service digest` | run the digest now; recent runs |
-| `railway connect Postgres` | `psql` through a tunnel |
-| `railway run --service web -- <command>` | run a local command with the service's variables |
+| `railway ssh keys add`, `railway ssh keys list` | register your SSH key with Railway (needed for the two below); list registered keys |
+| `railway connect Postgres` | `psql` through an SSH tunnel |
+| `railway ssh --service web -- <command>` | run a command inside the running `web` container, which can reach the database |
+| `railway run --service web -- <command>` | run a local command with the service's variables (it cannot reach the private database) |
 | `railway environment list`, `railway environment new staging --duplicate production` | environments |
 | `railway open` | the project in the dashboard |
 | `railway api '<graphql>'` | raw GraphQL against Railway's API; `railway api describe <Type>` prints a type |
